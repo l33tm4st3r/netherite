@@ -19,7 +19,7 @@ extern "C" {
 #endif
 
 /* host/device portability: functions usable from C and CUDA */
-#if defined(__CUDACC__)
+#if defined(__CUDACC__) || defined(__HIPCC__) || defined(__HIP__)
 #define CR_HD __host__ __device__
 #else
 #define CR_HD

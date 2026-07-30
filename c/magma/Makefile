@@ -3,9 +3,9 @@
 # command line still wins over this.
 MAKEFLAGS += -j$(shell nproc 2>/dev/null || sysctl -n hw.ncpu)
 CC      ?= gcc
-NVCC    ?= nvcc
+NVCC    ?= hipcc
 CFLAGS  ?= -O2 -ffp-contract=off -Wall -Wextra -Icore -I.
-NVFLAGS ?= -O2 --fmad=false -arch=sm_120 -Icore -I.
+NVFLAGS ?= -O2 -ffp-contract=off --offload-arch=gfx1201 -Icore -I.
 # SDL2 discovery: pkg-config, then sdl2-config (Homebrew path included for
 # non-interactive mac shells that lack /opt/homebrew/bin in PATH), then -lSDL2.
 SDL2_CONFIG := $(shell command -v sdl2-config 2>/dev/null || \
@@ -43,9 +43,9 @@ all: demo
 
 # --- CUDA raster for the game (RTX 3090 / sm_86 on anvil GPU1) ---
 # GPU1 is the RTX 3090; build the .cu for sm_86 and link cudart.
-NVFLAGS_GAME ?= -O2 --fmad=false -arch=sm_86 -Icore -I.
-CUDA_LIBDIR  ?= $(patsubst %/bin/nvcc,%/lib64,$(shell which nvcc))
-CUDA_LIBS    ?= -L$(CUDA_LIBDIR) -lcudart -lstdc++
+NVFLAGS_GAME ?= -O2 -ffp-contract=off --offload-arch=gfx1201 -Icore -I.
+CUDA_LIBDIR  ?= /opt/rocm/lib
+CUDA_LIBS    ?= -L$(CUDA_LIBDIR) -lamdhip64 -lstdc++
 
 # CPU spine demo (spinning textured cube)
 demo: magma_demo
@@ -110,7 +110,7 @@ game/chest_live.o: game/chest_live.c game/chest_live.h \
 game-cuda: magma_game_cuda
 app/game_main_cuda.o: app/game_main.c game/game.h game/runtime.h game/config.h core/types.h game/caps.h
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -DMAGMA_CUDA -I$(MCSIM)/core -c $< -o $@
-cuda/raster_cuda_game.o: cuda/raster_cuda.cu core/types.h core/shade.c
+cuda/raster_cuda_game.o: cuda/raster_hip.cpp core/types.h core/shade.c
 	$(NVCC) $(NVFLAGS_GAME) -c $< -o $@
 magma_game_cuda: app/game_main_cuda.o cuda/raster_cuda_game.o $(OBJ_GAME) $(OBJ_WORLD) \
               $(OBJ_RK) $(OBJ_ASSETS) $(OBJ_CORE) $(OBJ_RASTER) $(OBJ_XFORM) $(OBJ_PRESENT)
@@ -208,7 +208,7 @@ demo/demo_cube.o: demo/demo_cube.c core/types.h
 
 # CUDA raster backend
 cuda: cuda/raster_cuda.o
-cuda/raster_cuda.o: cuda/raster_cuda.cu core/types.h core/shade.c
+cuda/raster_cuda.o: cuda/raster_hip.cpp core/types.h core/shade.c
 	$(NVCC) $(NVFLAGS) -c $< -o $@
 
 # Rung 1: cr_raster_cpu == cr_raster_cuda, bit-exact (tests/test_raster_parity.c).
@@ -216,7 +216,7 @@ cuda/raster_cuda.o: cuda/raster_cuda.cu core/types.h core/shade.c
 # TU (C sources included) so the verified cr_raster_cuda + the CPU path agree.
 test-raster-parity:
 	$(NVCC) $(NVFLAGS_GAME) -Iraster/verify tests/test_raster_parity.c \
-	    cpu/raster_cpu.c core/shade.c core/math.c cuda/raster_cuda.cu \
+	    cpu/raster_cpu.c core/shade.c core/math.c cuda/raster_hip.cpp \
 	    -o tests/test_raster_parity
 	CUDA_VISIBLE_DEVICES=1 ./tests/test_raster_parity
 
@@ -332,14 +332,14 @@ rl/blaze/blaze_cpu.so: $(BLAZE_SRCS) rl/blaze/blaze_core.h rl/blaze/blaze_snapsh
 # SASS is identical to two single-arch builds: same source, same flags, so the
 # CPU==CUDA bitwise contract holds per arch. Same C ABI as blaze_cpu.so -
 # Python picks the backend at load time.
-BLAZE_SM ?= sm_120
-BLAZE_NVCODE := $(if $(filter sm_%,$(BLAZE_SM)),$(foreach a,$(patsubst sm_%,%,$(BLAZE_SM)),-gencode arch=compute_$(a),code=sm_$(a)),-arch=$(BLAZE_SM))
+BLAZE_SM ?= gfx1201
+BLAZE_NVCODE := --offload-arch=$(BLAZE_SM)
 .PHONY: blaze_cuda_so
 blaze_cuda_so: rl/blaze/blaze_cuda.so
-rl/blaze/blaze_cuda.so: rl/blaze/blaze_cuda.cu rl/blaze/blaze_snapshot.c \
+rl/blaze/blaze_cuda.so: rl/blaze/blaze_hip.cpp rl/blaze/blaze_snapshot.c \
                         rl/blaze/blaze_core.h rl/blaze/blaze_snapshot.h
-	$(NVCC) -O2 --fmad=false $(BLAZE_NVCODE) -I$(MCSIM)/core -Irl/blaze \
-	    -Xcompiler -fPIC --shared rl/blaze/blaze_cuda.cu \
+	$(NVCC) -O2 -ffp-contract=off $(BLAZE_NVCODE) -I$(MCSIM)/core -Irl/blaze \
+	    -Xcompiler -fPIC --shared rl/blaze/blaze_hip.cpp \
 	    rl/blaze/blaze_snapshot.c -o $@
 
 clean:

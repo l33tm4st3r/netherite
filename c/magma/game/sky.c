@@ -276,7 +276,7 @@ static CR_HD float mc_star_brightness(float celestial) {
 
 /* ---------------- eye-in-fluid fog override (host frame state) ---------------- */
 
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
 static int    g_fluid_fog_on = 0;
 static CrVec3 g_fluid_fog_col;
 static float  g_fluid_fog_density = 0.0f;
@@ -287,7 +287,7 @@ static float  g_eye_height = 1.62f;
 #endif
 
 void gm_sky_set_fluid_fog(int on, CrVec3 fog01, float density) {
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     g_fluid_fog_on = on;
     g_fluid_fog_col = fog01;
     g_fluid_fog_density = density;
@@ -297,7 +297,7 @@ void gm_sky_set_fluid_fog(int on, CrVec3 fog01, float density) {
 }
 
 void gm_sky_set_fog_c1(float fog_c1) {
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     g_fog_c1 = fog_c1 < 0.0f ? 0.0f : (fog_c1 > 1.0f ? 1.0f : fog_c1);
 #else
     (void)fog_c1;
@@ -305,7 +305,7 @@ void gm_sky_set_fog_c1(float fog_c1) {
 }
 
 void gm_sky_set_eye_height(float eye_height) {
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     /* Match Entity.getEyeHeight floor: ignore non-positive (keeps last/default). */
     if (eye_height > 0.01f) g_eye_height = eye_height;
 #else
@@ -327,7 +327,7 @@ static CR_HD GmSkyCtx gm_sky_ctx(float time_of_day) {
     CrVec3 sky_top = mc_sky_base_color(SKY_TEMP);
     c.sky_top = v3(sky_top.x * daylight, sky_top.y * daylight, sky_top.z * daylight);
     c.fog = mc_view_fog_color(c.sky_top, mc_fog_color(celestial));
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     /* updateFogColor: fogColor{Red,Green,Blue} *= f13 (fogColor1). Sky plane
      * vertices stay unscaled (getSkyColor); only the fog target is dimmed -
      * after long underwater stretches fogColor1 is low and the horizon band
@@ -354,7 +354,7 @@ static CR_HD GmSkyCtx gm_sky_ctx(float time_of_day) {
     /* orientCamera: plane at y=+16 feet-relative, then translate(0,-eyeH,0).
      * Device path without host state keeps the standing default 1.62. */
     c.plane_y = 16.0f - 1.62f;
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     /* host frame state (gm_sky_set_fluid_fog); the CUDA kernel gets the ctx
      * pre-built on the host, so device-compiled copies keep uw = 0. */
     c.uw = g_fluid_fog_on;
@@ -514,7 +514,7 @@ CrRgba gm_terrain_fog_color(float time_of_day) {
     /* fogColor1 is applied in gm_sky_ctx for the sky fog target; terrain
      * fog color is also scaled here so horizon terrain meets the same
      * clearColor (updateFogColor f13). */
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     fog = v3(fog.x * g_fog_c1, fog.y * g_fog_c1, fog.z * g_fog_c1);
 #endif
     CrRgba out;

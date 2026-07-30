@@ -353,7 +353,7 @@ MC_HD static inline void cu_world_set_state(Blaze *e, int wx, int wy, int wz,
  * serial (nlanes==1) callers; a full-warp __syncwarp on CUDA (the k_tick
  * cooperative path keeps every lane of the warp alive by construction). */
 MC_HD static inline void cu_sync_lanes(int nlanes) {
-#if defined(__CUDA_ARCH__)
+#if (defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     if (nlanes > 1) __syncwarp();
 #else
     (void)nlanes;

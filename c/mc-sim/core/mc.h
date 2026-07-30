@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#if defined(__CUDACC__)
+#if defined(__CUDACC__) || defined(__HIPCC__) || defined(__HIP__)
 #define MC_HD __host__ __device__
 #define MC_DEV __device__
 /* Compile-speed policy: heavy worldgen compute functions are marked MC_NOINLINE so nvcc's cicc

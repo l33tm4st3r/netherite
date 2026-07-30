@@ -11,7 +11,7 @@
  */
 #include "core/types.h"
 #include <math.h>
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
 #include <stdlib.h>
 #endif
 
@@ -19,7 +19,7 @@
  * cr_atlas_sample is shared with CUDA and has no shade ctx arg, so cr_shade
  * stashes the mode here for the duration of one fragment. Host-only override
  * MAGMA_SAMPLE_MODE still applies when this is 0. */
-#if defined(__CUDA_ARCH__)
+#if (defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
 static __device__ int g_cr_sample_mode_override = 0;
 #else
 static int g_cr_sample_mode_override = 0;
@@ -37,7 +37,7 @@ CR_HD CrRgba cr_atlas_sample(const CrTexture *tex, float u, float v) {
      * Optional MAGMA_TEXEL_BIAS{,_U,_V} (host-only) shifts nearest phase in
      * texel units. Hard-scene leaf black-hole residual is sensitive to V phase. */
     float bu = 0.0f, bv = 0.0f;
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     {
         static int init = 0;
         static float sbu = 0.0f, sbv = 0.0f;
@@ -56,7 +56,7 @@ CR_HD CrRgba cr_atlas_sample(const CrTexture *tex, float u, float v) {
     float fu = u * (float)tex->w + bu;
     float fv = v * (float)tex->h + bv;
     int mode = g_cr_sample_mode_override;
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     if (mode == 0) {
         static int sm = -2;
         if (sm == -2) {
@@ -179,7 +179,7 @@ CR_HD CrRgba cr_shade(const CrShadeCtx *sh, const CrFragment *frag) {
         || sh->layer == CR_LAYER_CUTOUT
         || sh->layer == CR_LAYER_CUTOUT_MIPPED;
     if (sh->alpha_mask && frag->light < 0.0f) alpha_test = 0;
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     /* Opt-in: alpha-test SOLID too (experiment; Java Fast SOLID has alpha DISABLED). */
     if (!alpha_test && sh->layer == CR_LAYER_SOLID) {
         static int sa = -1;
@@ -232,7 +232,7 @@ CR_HD CrRgba cr_shade(const CrShadeCtx *sh, const CrFragment *frag) {
     }
     float la = lscalar * ao_mul;
     float tr = frag->tint.r * inv255, tg = frag->tint.g * inv255, tb = frag->tint.b * inv255;
-#if !defined(__CUDA_ARCH__)
+#if !(defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__))
     {
         static int flat = -1;
         if (flat < 0) {
