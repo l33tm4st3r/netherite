@@ -626,7 +626,7 @@ extern "C" void cr_raster_cuda_pre(int w, int h, int max_tris) {
 static int g_atlas_host_dirty;
 extern "C" void cr_raster_cuda_atlas_dirty(void) { g_atlas_host_dirty = 1; }
 
-static CrTexture *cr_cuda_sync_atlas(const CrTexture *atlas) {
+extern "C" CrTexture *cr_cuda_sync_atlas(const CrTexture *atlas) {
     for (int i = 0; i < g_gpu.n_atlas; ++i)
         if (g_gpu.atlas[i].key == (const void *)atlas->texels) {
             if (g_atlas_host_dirty) {
